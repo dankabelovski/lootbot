@@ -5,6 +5,7 @@ from services.tool_matcher import find_tools_by_query
 from log import logger
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     if context.user_data.get("awaiting_prompt"):
         from handlers.image import handle_text_for_image
         return await handle_text_for_image(update, context)
@@ -19,13 +20,13 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.chat.send_action("typing")
 
     try:
-        data = ask_assistant(user_input)
+        data = await ask_assistant(user_input)
     except Exception as e:
         logger.error(f"Ошибка при обращении к ассистенту: {e}")
         await update.effective_message.reply_text("⚠️ Не удалось получить ответ.")
         return
 
-    reply = data.get("reply", "🤖 Что-то пошло не так.")
+    reply = data if isinstance(data, str) else "🤖 Что-то пошло не так."
     await update.effective_message.reply_text(reply)
 
     # Пробуем найти инструменты по ключевым словам
@@ -47,7 +48,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
     chat_id = update.effective_chat.id
-
+    print('Это handle_message')
     # Промпт с контекстом
     prompt = f"Ты — ассистент Telegram-бота с инструментами. Пользователь спрашивает: {user_text}. Дай полезный, краткий ответ и предложи инструменты, если подходят."
 
