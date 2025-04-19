@@ -41,12 +41,13 @@ async def set_model_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     await query.answer()
 
-    model_id = query.data.split(":", 1)[1]
-    user_id = update.effective_user.id
+    model = query.data.split(":")[1]
+    telegram_id = query.from_user.id
 
-    set_user_model(user_id, model_id)
+    set_user_model(telegram_id, model)  # Сохраняем в БД
+    context.user_data["llm_model"] = model  # Сохраняем в сессии
 
     await query.edit_message_text(
-        f"✅ Модель обновлена!\n\nТеперь используется:\n`{model_id}`",
+        f"✅ Модель обновлена!\n\nТеперь используется:\n`{model}`",
         parse_mode="Markdown"
     )

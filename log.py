@@ -2,6 +2,11 @@
 
 import logging
 
+#logging.basicConfig(
+#    level=logging.DEBUG,
+#    format="%(asctime)s - %(levelname)s - %(message)s"
+#)
+
 logger = logging.getLogger("mybot")
 logger.setLevel(logging.INFO)  # можно переключить на DEBUG при необходимости
 
