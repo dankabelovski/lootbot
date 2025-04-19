@@ -21,7 +21,7 @@ async def ask_assistant(prompt, model="mistral"):
 
     try:
         async with httpx.AsyncClient() as client:
-            print("Токен:", API_KEY)
+            print("Токен кщгеук:", API_KEY)
             print('This is ask_assistant')
             response = await client.post(OPENROUTER_URL, headers=HEADERS, json=body, timeout=30)
             response.raise_for_status()
