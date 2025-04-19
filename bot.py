@@ -2,17 +2,16 @@ import os
 import logging
 from dotenv import load_dotenv
 
-from handlers.assistant_mode import go_assistant
-from handlers.message_handler import message_handler
-from handlers.image import image_command, image_model_select, handle_text_for_image
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     CallbackQueryHandler,
-    ContextTypes
+    ContextTypes,
+    MessageHandler,
+    filters
 )
-from telegram.ext import MessageHandler, filters
+
 from log import logger
 
 # Старт и помощь
@@ -48,40 +47,37 @@ from handlers.insights import (
     article_detail,
     back_to_articles_callback
 )
+
+# Ассистент и профиль
 from handlers.assistant_mode import go_assistant, assistant_button_reply
 from handlers.message_handler import message_handler
-from handlers.message_handler import handle_message
+from handlers.profile import profile_handler, set_model_callback
+from handlers.image import image_command, image_model_select
 
 async def error_handler(update, context):
     logger.error(f"Ошибка: {context.error}")
-    # или: traceback.print_exception(...)
 
 # Загрузка токена
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-
-
+# Навигационные команды
 async def go_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     await help_handler(update, context)
-
 
 async def go_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     await prompt_handler(update, context)
 
-
 async def go_prompt_custom(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     await prompt_custom_start(update, context)
 
-
 async def go_tools(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     await tools_handler(update, context)
-
 
 async def go_insights(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
@@ -96,11 +92,10 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler("prompt", prompt_handler))
     app.add_handler(CommandHandler("insights", insights_handler))
     app.add_handler(CommandHandler("tools", tools_handler))
-
-    # Callback-кнопки
-    # Команды
     app.add_handler(CommandHandler("prompt_custom", prompt_custom_start))
     app.add_handler(CommandHandler("reload", reload_handler))
+    app.add_handler(CommandHandler("image", image_command))
+    app.add_handler(CommandHandler("profile", profile_handler))
 
     # Промпты
     app.add_handler(CallbackQueryHandler(prompt_callback, pattern="^(MidJourney|DALL·E|Stable Diffusion)$"))
@@ -130,22 +125,18 @@ if __name__ == '__main__':
     app.add_handler(CallbackQueryHandler(article_detail, pattern="^article:"))
     app.add_handler(CallbackQueryHandler(back_to_articles_callback, pattern="^back_to_articles$"))
 
-    # ИИ-Ассистент
+    # Ассистент и профиль
     app.add_handler(CallbackQueryHandler(go_assistant, pattern="^go_assistant$"))
     app.add_handler(CallbackQueryHandler(assistant_button_reply, pattern="^assistant_reply:"))
+    app.add_handler(CallbackQueryHandler(set_model_callback, pattern="^set_model:"))
+
+    # Модель изображения
+    app.add_handler(CallbackQueryHandler(image_model_select, pattern="^image_model:"))
+
+    # Обработка всех текстов (ассистент, генерация, предложения)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
 
-    app.add_handler(CommandHandler("image", image_command))
-    app.add_handler(CallbackQueryHandler(image_model_select, pattern="^image_model:"))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_for_image))
-
-    app.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND,  # только обычные текстовые сообщения, не команды
-        handle_message
-    ))
-
     app.add_error_handler(error_handler)
-
 
     print("Бот запущен...")
     app.run_polling()

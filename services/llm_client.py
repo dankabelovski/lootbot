@@ -1,6 +1,7 @@
 import os
 import httpx
 from dotenv import load_dotenv
+from log import logger
 
 load_dotenv()
 
@@ -13,10 +14,13 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-async def ask_assistant(prompt, model="mistral:7b-instruct"):
+
+async def ask_assistant(prompt: str, model: str = "mistralai/mistral-7b-instruct") -> str:
     body = {
         "model": model,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
         "temperature": 0.7
     }
 
@@ -24,6 +28,9 @@ async def ask_assistant(prompt, model="mistral:7b-instruct"):
         async with httpx.AsyncClient() as client:
             response = await client.post(OPENROUTER_URL, headers=HEADERS, json=body, timeout=30)
             response.raise_for_status()
-            return response.json()["choices"][0]["message"]["content"]
+            reply = response.json()["choices"][0]["message"]["content"]
+            logger.info(f"🧠 Ответ от {model}: {reply}")
+            return reply
     except Exception as e:
-        return f"⚠️ Ошибка ассистента: {e}"
+        logger.error(f"Ошибка генерации: {e}")
+        raise
