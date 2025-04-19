@@ -1,10 +1,11 @@
 import os
 import httpx
+from dotenv import load_dotenv
 
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+load_dotenv()
+
 API_KEY = os.getenv("OPENROUTER_API_KEY")
- # Добавил временно для проверки
-
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 HEADERS = {
     "Authorization": f"Bearer {API_KEY}",
@@ -12,17 +13,15 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-async def ask_assistant(prompt, model="mistral"):
+async def ask_assistant(prompt, model="mistral:7b-instruct"):
     body = {
-        "model": f"mistral/{model}",
+        "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.7
     }
 
     try:
         async with httpx.AsyncClient() as client:
-            print("Токен кщгеук:", API_KEY)
-            print('This is ask_assistant')
             response = await client.post(OPENROUTER_URL, headers=HEADERS, json=body, timeout=30)
             response.raise_for_status()
             return response.json()["choices"][0]["message"]["content"]

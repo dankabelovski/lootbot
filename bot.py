@@ -59,6 +59,9 @@ async def error_handler(update, context):
 # Загрузка токена
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_TOKEN")
+API_KEY = os.getenv("OPENROUTER_API_KEY")
+
+
 
 async def go_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
