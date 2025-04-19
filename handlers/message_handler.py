@@ -1,57 +1,74 @@
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
-from log import logger
-from services.tool_matcher import find_tools_by_query
-from db.users import upsert_user, get_user_model
 from services.llm_client import ask_assistant
-
+from services.tool_matcher import find_tools_by_query
+from services.article_search import find_articles_by_query
+from log import logger
+from db.users import get_user_model
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
+    user_input = update.message.text
     chat_id = update.effective_chat.id
 
-    # Сохраняем или обновляем пользователя в базе
-    upsert_user(user.id, user.username)
 
-    # Получаем выбранную модель пользователя
-    model_name = get_user_model(user.id)
 
-    # Определяем текст запроса
-    if update.message:
-        user_input = update.message.text
-    elif update.callback_query and update.callback_query.data.startswith("assistant_reply:"):
-        user_input = update.callback_query.data.split(":", 1)[1]
-        await update.callback_query.answer()
-    else:
-        return
-
-    await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-
-    # Формируем промпт
-    prompt = f"Ты — ассистент Telegram-бота. Пользователь спрашивает: {user_input}. Ответь полезно и кратко. Если есть подходящие инструменты, предложи их."
+    # Шаг 1. Краткий ответ от ассистента
+    prompt = (
+        f"Ты — ассистент Telegram-бота с инструментами и статьями."
+        f" Пользователь спрашивает: '{user_input}'."
+        f" Ответь кратко (2-3 предложения) и если есть подходящие инструменты или статьи, упомяни, что они найдены."
+    )
 
     try:
-        response = await ask_assistant(prompt, model=model_name)
+        short_reply = await ask_assistant(prompt, model=context.user_data.get("llm_model"))
     except Exception as e:
-        logger.error(f"Ошибка ассистента: {e}")
-        await context.bot.send_message(chat_id=chat_id, text="⚠️ Не удалось получить ответ от ассистента.")
+        logger.error(f"Ошибка при получении краткого ответа от ассистента: {e}")
+        await update.message.reply_text("⚠️ Не удалось получить ответ от ассистента.")
         return
 
-    reply_text = response if isinstance(response, str) else response.get("reply", "🤖 Что-то пошло не так.")
-    await context.bot.send_message(chat_id=chat_id, text=reply_text)
+    await update.message.reply_text(short_reply)
 
-    # Поиск инструментов по запросу
+    # Шаг 2. Поиск подходящих инструментов
     tools = find_tools_by_query(user_input)
+    articles = find_articles_by_query(user_input)
+
+    buttons = []
 
     if tools:
-        tool_buttons = [
-            [InlineKeyboardButton(name, callback_data=f"tool:{tool_id}:auto")]
-            for tool_id, name in tools
-        ]
-        tool_buttons.append([InlineKeyboardButton("⬅️ Назад в меню", callback_data="back_to_main")])
+        for tool_id, name in tools:
+            buttons.append([InlineKeyboardButton(f"🛠 {name}", callback_data=f"tool:{tool_id}:auto")])
 
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text="💡 Попробуйте эти инструменты:",
-            reply_markup=InlineKeyboardMarkup(tool_buttons)
+    if articles:
+        for article_id, title in articles:
+            buttons.append([InlineKeyboardButton(f"📚 {title}", callback_data=f"article:{article_id}")])
+
+    if tools or articles:
+        buttons.append([InlineKeyboardButton("📖 Рассказать подробнее", callback_data=f"assistant_reply:{user_input}")])
+        buttons.append([InlineKeyboardButton("⬅️ Назад в меню", callback_data="back_to_main")])
+        await update.message.reply_text(
+            "Вот что я нашёл по твоему запросу:",
+            reply_markup=InlineKeyboardMarkup(buttons)
         )
+    else:
+        # Если ничего не найдено, просто предложить узнать подробнее
+        await update.message.reply_text(
+            "📌 Хочешь узнать больше?",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("📖 Рассказать подробнее", callback_data=f"assistant_reply:{user_input}")],
+                [InlineKeyboardButton("⬅️ Назад в меню", callback_data="back_to_main")]
+            ])
+        )
+
+
+async def assistant_explain_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_input = query.data.split(":", 1)[1]
+
+    prompt = f"Пользователь спрашивает: {user_input}. Дай полный и полезный ответ, как эксперт по ИИ-инструментам."
+    try:
+        response = await ask_assistant(prompt)
+        await query.message.reply_text(response)
+    except Exception as e:
+        logger.error(f"Ошибка пояснения: {e}")
+        await query.message.reply_text("⚠️ Не удалось получить пояснение.")
