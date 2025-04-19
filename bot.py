@@ -50,6 +50,7 @@ from handlers.insights import (
 )
 from handlers.assistant_mode import go_assistant, assistant_button_reply
 from handlers.message_handler import message_handler
+from handlers.message_handler import handle_message
 
 async def error_handler(update, context):
     logger.error(f"Ошибка: {context.error}")
@@ -135,6 +136,13 @@ if __name__ == '__main__':
     app.add_handler(CallbackQueryHandler(image_model_select, pattern="^image_model:"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_for_image))
 
+    app.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND,  # только обычные текстовые сообщения, не команды
+        handle_message
+    ))
+
     app.add_error_handler(error_handler)
+
+
     print("Бот запущен...")
     app.run_polling()

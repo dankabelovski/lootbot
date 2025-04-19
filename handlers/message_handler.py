@@ -42,3 +42,14 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "💡 Попробуйте эти инструменты:",
             reply_markup=InlineKeyboardMarkup(tool_buttons)
         )
+
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_text = update.message.text
+    chat_id = update.effective_chat.id
+
+    # Промпт с контекстом
+    prompt = f"Ты — ассистент Telegram-бота с инструментами. Пользователь спрашивает: {user_text}. Дай полезный, краткий ответ и предложи инструменты, если подходят."
+
+    response = await ask_assistant(prompt, model="mixtral")  # или mistral:7b-instruct
+    await context.bot.send_message(chat_id=chat_id, text=response)

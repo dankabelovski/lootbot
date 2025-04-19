@@ -1,40 +1,26 @@
-import requests
+import os
+import httpx
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "phi3"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-def ask_assistant(prompt: str) -> dict:
-    instruction = (
-        "Ты — ассистент Telegram-бота Loot & Learn. "
-        "Ты помогаешь находить полезные инструменты из базы по описанию запроса пользователя. "
-        "Отвечай как в обычном чате, не используй JSON, просто текст.\n"
-        "Если нашёл подходящие инструменты — напиши это, но сами инструменты предложит бот позже."
-    )
+HEADERS = {
+    "Authorization": f"Bearer {API_KEY}",
+    "HTTP-Referer": "https://t.me/loot_and_learn_bot",
+    "Content-Type": "application/json"
+}
 
-    full_prompt = f"{instruction}\n\nПользователь:\n{prompt}"
-
-    payload = {
-        "model": OLLAMA_MODEL,
-        "prompt": full_prompt,
-        "stream": False,
-        "options": {
-            "num_predict": 200
-        }
+async def ask_assistant(prompt, model="mistral"):
+    body = {
+        "model": f"mistral/{model}",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.7
     }
 
     try:
-        response = requests.post(OLLAMA_URL, json=payload)
-        raw = response.json().get("response", "")
-        print("🧠 Ответ от Ollama:", raw)
-
-        return {
-            "reply": raw.strip(),
-            "options": []
-        }
-
+        async with httpx.AsyncClient() as client:
+            response = await client.post(OPENROUTER_URL, headers=HEADERS, json=body, timeout=30)
+            response.raise_for_status()
+            return response.json()["choices"][0]["message"]["content"]
     except Exception as e:
-        print("⚠️ Ошибка phi3:", e)
-        return {
-            "reply": "⚠️ Не удалось получить ответ от ассистента.",
-            "options": []
-        }
+        return f"⚠️ Ошибка ассистента: {e}"
